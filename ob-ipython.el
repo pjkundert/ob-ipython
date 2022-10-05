@@ -3,7 +3,7 @@
 ;; Author: Greg Sexton <gregsexton@gmail.com>
 ;; Keywords: literate programming, reproducible research
 ;; Homepage: http://www.gregsexton.org
-;; Package-Requires: ((s "1.9.0") (dash "2.10.0") (dash-functional "1.2.0") (f "0.17.2") (emacs "24"))
+;; Package-Requires: ((s "1.9.0") (dash "2.18.0") (f "0.17.2") (emacs "24"))
 
 ;; The MIT License (MIT)
 
@@ -36,12 +36,11 @@
 (require 'ob)
 (require 'ob-python)
 (require 'dash)
-(require 'dash-functional)
 (require 's)
 (require 'f)
 (require 'json)
 (require 'python)
-(require 'cl)
+(require 'cl-lib)
 
 ;; variables
 
@@ -63,6 +62,10 @@
 (defcustom ob-ipython-resources-dir "./obipy-resources/"
   "Directory where resources (e.g images) are stored so that they
 can be displayed.")
+
+(defcustom ob-ipython-show-execution-count nil
+  "If non-nil show the execution count in output."
+  :group 'ob-ipython)
 
 ;; utils
 
@@ -626,11 +629,13 @@ This function is called by `org-babel-execute-src-block'."
         output
       (ob-ipython--output output nil)
       (s-concat
-       (format "# Out[%d]:\n" (cdr (assoc :exec-count ret)))
+       (if ob-ipython-show-execution-count
+	   (format "# Out[%d]:\n" (cdr (assoc :exec-count ret)))
+	   "")
        (s-join "\n" (->> (-map (-partial 'ob-ipython--render file)
                                (list (cdr (assoc :value result))
                                      (cdr (assoc :display result))))
-                         (remove-if-not nil)))))))
+                         (cl-remove-if-not nil)))))))
 
 (defun ob-ipython--render (file-or-nil values)
   (let ((org (lambda (value) value))
@@ -656,7 +661,7 @@ This function is called by `org-babel-execute-src-block'."
                (let ((lines (s-lines value)))
                  (if (cdr lines)
                      (->> lines
-                          (-map 's-trim)
+                          (-map 's-trim-right)
                           (s-join "\n  ")
                           (s-concat "  ")
                           (format "#+BEGIN_EXAMPLE\n%s\n#+END_EXAMPLE"))
